@@ -1,1 +1,6 @@
 slack-bolt
+requests 
+langchain-core
+langchain_openai
+langchain_text_splitters
+pypdf
