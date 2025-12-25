@@ -1,14 +1,11 @@
 import os
 from io import BytesIO
 from typing import Optional, List
-
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-# PDF parsing
 from pypdf import PdfReader
+from langchain_chroma import Chroma
 
 
 # --------- Global RAG objects (in-memory) ---------
@@ -19,7 +16,11 @@ if not OPENAI_API_KEY:
 
 model = ChatOpenAI(model="gpt-4.1", temperature=0)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-vector_store = InMemoryVectorStore(embeddings)
+vector_store = Chroma(
+    collection_name="slack_docs",
+    embedding_function=embeddings,
+    persist_directory="./chroma_db",
+)
 
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
@@ -81,6 +82,7 @@ def index_slack_file_bytes(
     )
 
     splits = text_splitter.split_documents([base_doc])
+    print("Total vectors:", vector_store._collection.count())
     return vector_store.add_documents(splits)
 
 

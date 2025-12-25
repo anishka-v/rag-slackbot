@@ -139,7 +139,7 @@ def on_message(event, client, logger):
                 client.chat_postMessage(
                     channel=channel,
                     thread_ts=thread_ts,
-                    text=f"✅ Saved `{name}` and indexed {len(ids)} chunks. Ask me a question by @mentioning me (or DM me).",
+                    text=f"✅ Saved `{name}` and indexed {len(ids)} chunks.",
                 )
             except Exception as e:
                 logger.exception("Failed processing uploaded file")
@@ -153,25 +153,19 @@ def on_message(event, client, logger):
     
     if (event.get("type") == "message" and not event.get("subtype") and bool(event.get("text"))):
         text = (event.get("text") or "").strip()
+
+        user_id = event['user']
+    
+        # 2. Call users.info
+        result = client.users_info(user=user_id)
+    
+        # 3. Access name fields
+        user_name = result['user']['profile']['display_name'] or result['user']['real_name']
+    
+        print(user_name)
+
         if not text:
             return
-
-        """channel_type = event.get("channel_type")  # "im" for DM
-        mention_token = f"<@{BOT_USER_ID}>"
-        mentioned = mention_token in text
-
-        # In channels, only respond when mentioned. In DMs, always respond.
-        if channel_type != "im" and not mentioned:
-            return 
-        
-        question = text.replace(mention_token, "").strip()
-        if not question:
-            client.chat_postMessage(
-                channel=channel,
-                thread_ts=thread_ts,
-                text="Ask a question after mentioning me, like: `@bot what does this PDF say about X?`",
-            )
-            return """
 
         try:
             print("query: " + text)
