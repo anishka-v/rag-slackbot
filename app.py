@@ -4,7 +4,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 import random
 import pathlib
 import requests
-from rag import index_slack_file_bytes, answer_query
+from rag import index_slack_file_bytes, answer_query, delete_all_embeddings
 
 
 # This sample slack application uses SocketMode
@@ -100,8 +100,17 @@ def on_message(event, client, logger):
     thread_ts = event.get("thread_ts") or event.get("ts")
 
     subtype = event.get("subtype")
-    #print (subtype)
-    print (event)
+
+    text = (event.get("text") or "").strip().lower()
+
+    # Only trigger if user mentions the bot AND types delete
+    if f"<@{BOT_USER_ID}>" in (event.get("text") or "") and text.endswith("delete"):
+        remaining = delete_all_embeddings()
+        client.chat_postMessage(
+            channel=event["channel"],
+            text=f"✅ Deleted all embeddings."
+        )
+        return
 
      # ---- A) File upload case (subtype=file_share) ----
     if subtype == "file_share":
@@ -132,8 +141,14 @@ def on_message(event, client, logger):
                 data = download_slack_file(url)
                 dest.write_bytes(data)
 
+                user_id = event['user']
+                result = client.users_info(user=user_id)
+                user_name = result['user']['profile']['display_name'] or result['user']['real_name']
+    
+
                 # Index into RAG
-                ids = index_slack_file_bytes(data, file_obj, slack_channel=channel)
+                ids = index_slack_file_bytes(file_bytes=data, file_obj=file_obj, user_id=user_name, channel_id=channel)
+
                 INDEXED_FILE_IDS.add(file_id)
 
                 client.chat_postMessage(
@@ -154,21 +169,11 @@ def on_message(event, client, logger):
     if (event.get("type") == "message" and not event.get("subtype") and bool(event.get("text"))):
         text = (event.get("text") or "").strip()
 
-        user_id = event['user']
-    
-        # 2. Call users.info
-        result = client.users_info(user=user_id)
-    
-        # 3. Access name fields
-        user_name = result['user']['profile']['display_name'] or result['user']['real_name']
-    
-        print(user_name)
-
+        
         if not text:
             return
 
         try:
-            print("query: " + text)
             answer = answer_query(text, slack_channel=channel, k=4)
             client.chat_postMessage(channel=channel, thread_ts=thread_ts, text=answer)
         except Exception as e:
